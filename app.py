@@ -25,7 +25,7 @@ PAGE = r"""
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Short link + QR code</title>
+  <title>URL Shortner</title>
   {% if favicon %}
   <link rel="icon" href="{{ favicon }}">
   <link rel="apple-touch-icon" href="{{ favicon }}">
