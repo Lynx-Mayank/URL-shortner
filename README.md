@@ -1,5 +1,5 @@
-# URL-shortner + QR Generator
-## Website Link - https://url-shortner-uc5p.onrender.com/ 
+# Short Link + QR Generator
+## Website Link - https://url-shortner-uc5p.onrender.com/
 
 A simple Flask web app that turns a long URL into a short link (via TinyURL) and generates a downloadable QR code for it.
 
@@ -8,8 +8,9 @@ A simple Flask web app that turns a long URL into a short link (via TinyURL) and
 - Shorten any long URL using TinyURL (no API key needed)
 - Instantly generate a QR code for the short link
 - Download the QR code as a PNG
+- One-click copy button for the short link
+- Optional custom aliases (e.g. `tinyurl.com/my-event`) when a TinyURL API token is set
 - Basic URL validation and error handling
-- Dark and light mode
 - Single-file app, no database required
 
 ## Tech Stack
@@ -74,6 +75,16 @@ Open http://127.0.0.1:5000 in your browser.
    - **Start command:** `gunicorn app:app`
 4. Deploy. Note that on the free tier the app sleeps after inactivity, so the first load may take up to a minute.
 
+## Custom Aliases (optional)
+
+1. Create a free TinyURL account and generate an API token at https://tinyurl.com/app/settings/api
+2. Set it as an environment variable named `TINYURL_API_TOKEN`:
+   - Locally: `export TINYURL_API_TOKEN=your_token` (Windows: `set TINYURL_API_TOKEN=your_token`)
+   - On Render: Environment tab, add `TINYURL_API_TOKEN`
+3. Restart the app. An alias box now appears under the URL field.
+
+Without a token the app still works, just without the alias box.
+
 ## Notes
 
 - This app uses TinyURL's simple public endpoint. For heavy use, consider switching to the official TinyURL or Bitly API with an API token.
@@ -81,8 +92,6 @@ Open http://127.0.0.1:5000 in your browser.
 
 ## Future Improvements
 
-- Copy-to-clipboard button
-- Custom aliases for short links
 - Bitly API support
 - Scan history
 
