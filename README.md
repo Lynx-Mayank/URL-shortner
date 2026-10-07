@@ -1,6 +1,6 @@
 # URL-shortner + QR Generator
 ## Website Link - https://url-shortner-uc5p.onrender.com/  
-###(the website make take 50s to load)
+### (the website make take 50s to load)
 
 A simple Flask web app that turns a long URL into a short link (via TinyURL) and generates a downloadable QR code for it.
 
@@ -10,6 +10,7 @@ A simple Flask web app that turns a long URL into a short link (via TinyURL) and
 - Instantly generate a QR code for the short link
 - Download the QR code as a PNG
 - Basic URL validation and error handling
+- Dark and light mode
 - Single-file app, no database required
 
 ## Tech Stack
