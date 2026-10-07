@@ -1,5 +1,7 @@
 import base64
 import io
+import os
+import re
 from urllib.parse import quote, urlparse
 
 import qrcode
@@ -9,7 +11,13 @@ from flask import Flask, render_template_string, request
 app = Flask(__name__)
 
 # Paste the link to your tab icon image here (png / ico / svg).
-FAVICON_URL = "/static/img.png"
+# Optional: a free TinyURL API token turns on custom aliases.
+# Set it as an environment variable (never paste it into the code or GitHub).
+TINYURL_API_TOKEN = os.environ.get("TINYURL_API_TOKEN", "")
+
+ALIAS_PATTERN = re.compile(r"^[A-Za-z0-9_-]{5,30}$")
+
+FAVICON_URL = ""
 
 PAGE = r"""
 <!doctype html>
@@ -137,6 +145,30 @@ PAGE = r"""
     }
     :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
+    .alias {
+      display: flex;
+      align-items: center;
+      margin-top: 12px;
+      padding: 0 6px 0 16px;
+      background: var(--surface);
+      border: 1.5px solid var(--line);
+      border-radius: 12px;
+      transition: border-color .15s;
+    }
+    .alias:focus-within { border-color: var(--accent); }
+    .alias span { color: var(--muted); white-space: nowrap; }
+    .alias input {
+      flex: 1;
+      min-width: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      padding: 12px 8px;
+    }
+    .alias input::placeholder { color: var(--muted); opacity: .8; }
+
     .error {
       margin-top: 16px;
       padding: 12px 14px;
@@ -246,6 +278,13 @@ PAGE = r"""
                value="{{ long_url or '' }}" required>
         <button class="btn" type="submit" id="submit">Shorten</button>
       </div>
+      {% if alias_enabled %}
+      <label class="alias">
+        <span>tinyurl.com/</span>
+        <input type="text" name="alias" autocomplete="off" spellcheck="false" maxlength="30"
+               placeholder="custom-name (optional)" aria-label="Custom alias" value="{{ alias or '' }}">
+      </label>
+      {% endif %}
     </form>
 
     {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
@@ -312,8 +351,31 @@ def is_valid_url(url: str) -> bool:
     return p.scheme in ("http", "https") and bool(p.netloc)
 
 
-def shorten_with_tinyurl(long_url: str) -> str:
-    # Simple TinyURL endpoint, no API key required
+class AliasError(Exception):
+    pass
+
+
+def shorten_with_tinyurl(long_url: str, alias: str = "") -> str:
+    if TINYURL_API_TOKEN:
+        # Official API: supports custom aliases
+        payload = {"url": long_url, "domain": "tinyurl.com"}
+        if alias:
+            payload["alias"] = alias
+        r = requests.post(
+            "https://api.tinyurl.com/create",
+            json=payload,
+            headers={"Authorization": f"Bearer {TINYURL_API_TOKEN}"},
+            timeout=10,
+        )
+        if r.status_code in (400, 422) and alias:
+            raise AliasError("That alias isn't available. Try a different one.")
+        r.raise_for_status()
+        short = r.json()["data"]["tiny_url"]
+        if alias and short.rstrip("/").split("/")[-1].lower() != alias.lower():
+            raise AliasError("That alias is already taken. Try a different one.")
+        return short
+
+    # No token: simple public endpoint (no custom aliases)
     r = requests.get(
         f"https://tinyurl.com/api-create.php?url={quote(long_url, safe='')}",
         timeout=10,
@@ -338,25 +400,33 @@ def make_qr_base64(data: str) -> str:
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    ctx = {"long_url": None, "short_url": None, "qr_b64": None, "error": None}
+    ctx = {"long_url": None, "short_url": None, "qr_b64": None, "error": None, "alias": ""}
 
     if request.method == "POST":
         long_url = request.form.get("url", "").strip()
         if long_url and "://" not in long_url:
             long_url = "https://" + long_url
         ctx["long_url"] = long_url
+        alias = request.form.get("alias", "").strip() if TINYURL_API_TOKEN else ""
+        ctx["alias"] = alias
 
         if not is_valid_url(long_url):
             ctx["error"] = "That doesn't look like a web address. Check it and try again."
+        elif alias and not ALIAS_PATTERN.match(alias):
+            ctx["error"] = "Alias must be 5-30 characters: letters, numbers, - or _ only."
         else:
             try:
-                short = shorten_with_tinyurl(long_url)
+                short = shorten_with_tinyurl(long_url, alias)
                 ctx["short_url"] = short
                 ctx["qr_b64"] = make_qr_base64(short)
+            except AliasError as e:
+                ctx["error"] = str(e)
             except requests.RequestException:
                 ctx["error"] = "TinyURL didn't respond. Wait a moment and try again."
 
-    return render_template_string(PAGE, favicon=FAVICON_URL, **ctx)
+    return render_template_string(
+        PAGE, favicon=FAVICON_URL, alias_enabled=bool(TINYURL_API_TOKEN), **ctx
+    )
 
 
 if __name__ == "__main__":
