@@ -8,38 +8,251 @@ from flask import Flask, render_template_string, request
 
 app = Flask(__name__)
 
-PAGE = """
+PAGE = r"""
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Short Link + QR</title>
+  <title>Short link + QR code</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 520px; margin: 40px auto; padding: 0 16px; }
-    input[type=text] { width: 100%; padding: 10px; font-size: 16px; box-sizing: border-box; }
-    button { margin-top: 10px; padding: 10px 18px; font-size: 16px; cursor: pointer; }
-    .result { margin-top: 24px; padding: 16px; border: 1px solid #ccc; border-radius: 8px; }
-    .error { color: #b00020; margin-top: 16px; }
-    img { max-width: 220px; display: block; margin-top: 12px; }
+    :root {
+      --bg: #eef2f8;
+      --surface: #ffffff;
+      --ink: #14213d;
+      --muted: #5b6b82;
+      --line: #d5deeb;
+      --accent: #2b59ff;
+      --accent-ink: #ffffff;
+      --accent-soft: #e4ebff;
+      --error: #c23b3b;
+      --error-soft: #fbe9e9;
+      --shadow: 0 1px 2px rgba(20, 33, 61, .06), 0 12px 32px rgba(20, 33, 61, .08);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0e1526;
+        --surface: #17203a;
+        --ink: #e9eefb;
+        --muted: #9aa9c4;
+        --line: #2a3657;
+        --accent: #6f8dff;
+        --accent-ink: #0e1526;
+        --accent-soft: #232f55;
+        --error: #ff8a8a;
+        --error-soft: #3a2230;
+        --shadow: 0 12px 32px rgba(0, 0, 0, .35);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      display: flex;
+      justify-content: center;
+      padding: 56px 20px 40px;
+    }
+    main { width: 100%; max-width: 560px; }
+
+    h1 {
+      font-family: "Bricolage Grotesque", "DM Sans", system-ui, sans-serif;
+      font-weight: 700;
+      font-size: clamp(2rem, 6vw, 2.75rem);
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      margin: 0 0 12px;
+    }
+    .lede { margin: 0 0 32px; color: var(--muted); max-width: 44ch; }
+
+    .field {
+      display: flex;
+      gap: 8px;
+      background: var(--surface);
+      border: 1.5px solid var(--line);
+      border-radius: 16px;
+      padding: 8px;
+      box-shadow: var(--shadow);
+      transition: border-color .15s;
+    }
+    .field:focus-within { border-color: var(--accent); }
+    .field input {
+      flex: 1;
+      min-width: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      padding: 12px 12px;
+    }
+    .field input::placeholder { color: var(--muted); opacity: .8; }
+
+    .btn {
+      font: inherit;
+      font-weight: 600;
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 20px;
+      cursor: pointer;
+      background: var(--accent);
+      color: var(--accent-ink);
+      transition: transform .1s, opacity .15s;
+    }
+    .btn:hover { opacity: .92; }
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled { opacity: .6; cursor: progress; }
+    .btn.ghost {
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 9px 14px;
+      font-size: .9rem;
+      text-decoration: none;
+      display: inline-block;
+    }
+    :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+    .error {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: var(--error-soft);
+      color: var(--error);
+      font-weight: 500;
+    }
+
+    .result {
+      margin-top: 28px;
+      background: var(--surface);
+      border: 1.5px solid var(--line);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 24px;
+      align-items: center;
+      animation: reveal .35s ease-out;
+    }
+    .qr {
+      width: 200px;
+      height: 200px;
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px;
+      border: 1px solid var(--line);
+    }
+    .qr img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+
+    .label { color: var(--muted); font-size: .9rem; margin: 0 0 4px; }
+    .short {
+      font-family: "Bricolage Grotesque", "DM Sans", sans-serif;
+      font-weight: 600;
+      font-size: 1.4rem;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      word-break: break-all;
+      text-decoration: none;
+      display: block;
+      margin-bottom: 16px;
+    }
+    .short:hover { color: var(--accent); }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .origin {
+      margin: 18px 0 0;
+      font-size: .85rem;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    footer { margin-top: 40px; color: var(--muted); font-size: .85rem; }
+
+    @keyframes reveal { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      .result { animation: none; }
+      * { transition: none !important; }
+    }
+    @media (max-width: 520px) {
+      body { padding-top: 36px; }
+      .field { flex-direction: column; }
+      .btn { width: 100%; }
+      .result { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+      .actions { justify-content: center; }
+      .qr { width: 220px; height: 220px; }
+    }
   </style>
 </head>
 <body>
-  <h2>Shorten a URL + get a QR code</h2>
-  <form method="post">
-    <input type="text" name="url" placeholder="Paste your long URL here" value="{{ long_url or '' }}" required>
-    <button type="submit">Shorten</button>
-  </form>
+  <main>
+    <h1>Short link and QR code, in one step</h1>
+    <p class="lede">Paste a long web address. You get a short link and a QR code that opens it.</p>
 
-  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <form method="post" id="form">
+      <div class="field">
+        <input type="text" name="url" inputmode="url" autocomplete="off" spellcheck="false"
+               placeholder="Paste a long URL" aria-label="Long URL"
+               value="{{ long_url or '' }}" required>
+        <button class="btn" type="submit" id="submit">Shorten</button>
+      </div>
+    </form>
 
-  {% if short_url %}
-  <div class="result">
-    <div>Short link: <a href="{{ short_url }}" target="_blank">{{ short_url }}</a></div>
-    <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR code">
-    <a download="qr.png" href="data:image/png;base64,{{ qr_b64 }}">Download QR</a>
-  </div>
-  {% endif %}
+    {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+
+    {% if short_url %}
+    <section class="result" aria-live="polite">
+      <div class="qr"><img src="data:image/png;base64,{{ qr_b64 }}" alt="QR code for {{ short_url }}"></div>
+      <div>
+        <p class="label">Your short link</p>
+        <a class="short" href="{{ short_url }}" target="_blank" rel="noopener" id="short">{{ short_url }}</a>
+        <div class="actions">
+          <button class="btn ghost" type="button" id="copy">Copy link</button>
+          <a class="btn ghost" download="qr-code.png" href="data:image/png;base64,{{ qr_b64 }}">Download QR</a>
+        </div>
+        <p class="origin" title="{{ long_url }}">From {{ long_url }}</p>
+      </div>
+    </section>
+    {% endif %}
+
+    <footer>Links are shortened with TinyURL. The QR code points to the short link.</footer>
+  </main>
+
+  <script>
+    const form = document.getElementById("form");
+    const submit = document.getElementById("submit");
+    form.addEventListener("submit", () => {
+      submit.disabled = true;
+      submit.textContent = "Shortening...";
+    });
+
+    const copyBtn = document.getElementById("copy");
+    if (copyBtn) {
+      copyBtn.addEventListener("click", async () => {
+        const text = document.getElementById("short").textContent.trim();
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch (e) {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          ta.remove();
+        }
+        copyBtn.textContent = "Copied";
+        setTimeout(() => (copyBtn.textContent = "Copy link"), 1800);
+      });
+    }
+  </script>
 </body>
 </html>
 """
@@ -61,7 +274,14 @@ def shorten_with_tinyurl(long_url: str) -> str:
 
 
 def make_qr_base64(data: str) -> str:
-    img = qrcode.make(data)
+    qr = qrcode.QRCode(
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=10,
+        border=1,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="#14213d", back_color="white")
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return base64.b64encode(buf.getvalue()).decode()
@@ -78,14 +298,14 @@ def index():
         ctx["long_url"] = long_url
 
         if not is_valid_url(long_url):
-            ctx["error"] = "Please enter a valid URL."
+            ctx["error"] = "That doesn't look like a web address. Check it and try again."
         else:
             try:
                 short = shorten_with_tinyurl(long_url)
                 ctx["short_url"] = short
                 ctx["qr_b64"] = make_qr_base64(short)
             except requests.RequestException:
-                ctx["error"] = "Couldn't reach TinyURL. Try again in a moment."
+                ctx["error"] = "TinyURL didn't respond. Wait a moment and try again."
 
     return render_template_string(PAGE, **ctx)
 
