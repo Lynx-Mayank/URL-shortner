@@ -9,7 +9,7 @@ from flask import Flask, render_template_string, request
 app = Flask(__name__)
 
 # Paste the link to your tab icon image here (png / ico / svg).
-FAVICON_URL = "img.png"
+FAVICON_URL = "/static/img.png"
 
 PAGE = r"""
 <!doctype html>
