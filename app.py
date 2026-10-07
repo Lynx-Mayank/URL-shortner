@@ -17,7 +17,7 @@ TINYURL_API_TOKEN = os.environ.get("TINYURL_API_TOKEN", "")
 
 ALIAS_PATTERN = re.compile(r"^[A-Za-z0-9_-]{5,30}$")
 
-FAVICON_URL = ""
+FAVICON_URL = "/static/img2.png"
 
 PAGE = r"""
 <!doctype html>
